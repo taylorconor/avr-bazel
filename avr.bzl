@@ -40,7 +40,7 @@ def _get_avr_attrs(**attrs):
         for avr_attr in avr_attrs["deps"]:
             if avr_attr.endswith("_avr"):
                 new_attrs.append(avr_attr)
-            elif avr_attr.startswith("//") or avr_attr.startswith(":"):
+            elif avr_attr.startswith("//") or avr_attr.startswith(":") or avr_attr.startswith('@'):
                 if ":" in avr_attr:
                     new_attrs.append(avr_attr + "_avr")
                 else:
