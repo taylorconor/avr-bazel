@@ -50,11 +50,10 @@ def _get_avr_attrs(**attrs):
         avr_attrs["deps"] = new_attrs
     return avr_attrs
 
-def _get_standard_arguments():
-    return [
+def _get_standard_arguments(src_file):
+    compiler_args = [
         "-Os",
         "-mmcu=atmega32u4",
-        "-std=c++17",
         "-Wall",
         "-Wno-main",
         "-Wundef",
@@ -69,13 +68,26 @@ def _get_standard_arguments():
         "-fshort-enums",
         "-ffunction-sections",
         "-fdata-sections",
-        "-fno-rtti",
         "-fno-exceptions",
         "-fno-unwind-tables",
         "-nostdlib",
         "-iquote",
         ".",
     ]
+    if src_file.basename.endswith(".cpp"):
+        compiler_args.extend([
+	    "-std=c++17",
+	    "-fno-rtti",
+	])
+    return compiler_args
+
+def _get_relevant_compiler(ctx, src_file):
+    if src_file.basename.endswith(".cpp"):
+       return ctx.executable._cpp_compiler
+    elif src_file.basename.endswith(".c"):
+       return ctx.executable._c_compiler
+    else:
+       fail("attempted to get compiler for invalid src_file " + src_file)
 
 def _avr_library_impl(ctx):
     objs = []
@@ -90,8 +102,8 @@ def _avr_library_impl(ctx):
             inputs = [src_file] + hdrs_list,
             outputs = [obj_file],
             mnemonic = "BuildAVRObject",
-            executable = ctx.executable._compiler,
-            arguments = _get_standard_arguments() + [src_file.path, "-o", obj_file.path, "-c"],
+            executable = _get_relevant_compiler(ctx, src_file),
+            arguments = _get_standard_arguments(src_file) + [src_file.path, "-o", obj_file.path, "-c"],
         )
         objs.append(obj_file)
 
@@ -118,8 +130,8 @@ def _avr_binary_impl(ctx):
     link_args.extend([x.path for x in ctx.files.srcs])
     link_args.extend(["-o", ctx.outputs.binary.path])
     link_args.extend([x.path for x in libs])
-    for src in ctx.files.srcs:
-        action_inputs = [src]
+    for src_file in ctx.files.srcs:
+        action_inputs = [src_file]
         action_inputs.extend(ctx.files.hdrs)
         action_inputs.extend(libs)
         action_inputs.extend(_get_transitive_hdrs(ctx))
@@ -128,8 +140,8 @@ def _avr_binary_impl(ctx):
             inputs = action_inputs,
             outputs = [ctx.outputs.binary],
             mnemonic = "LinkAVRBinary",
-            executable = ctx.executable._compiler,
-            arguments = _get_standard_arguments() + link_args,
+            executable = _get_relevant_compiler(ctx, src_file),
+            arguments = _get_standard_arguments(src_file) + link_args,
         )
     return DefaultInfo(executable = ctx.outputs.binary)
 
@@ -149,8 +161,13 @@ avr_build_content = """
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
-  name = "avr_compiler",
+  name = "avr_g++",
   srcs = ["avr-g++"],
+)
+
+filegroup(
+  name = "avr_gcc",
+  srcs = ["avr-gcc"],
 )
 
 filegroup(
@@ -174,8 +191,14 @@ def avr_tools_repository():
 _avr_pure_library = rule(
     _avr_library_impl,
     attrs = {
-        "_compiler": attr.label(
-            default = Label("@avrtools//:avr_compiler"),
+        "_cpp_compiler": attr.label(
+            default = Label("@avrtools//:avr_g++"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+	"_c_compiler": attr.label(
+            default = Label("@avrtools//:avr_gcc"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
@@ -186,7 +209,7 @@ _avr_pure_library = rule(
             executable = True,
             cfg = "host",
         ),
-        "srcs": attr.label_list(allow_files = [".cpp"]),
+        "srcs": attr.label_list(allow_files = [".cpp", ".c"]),
         "hdrs": attr.label_list(allow_files = [".h"]),
         "deps": attr.label_list(),
 	"includes": attr.label_list(),
@@ -204,13 +227,19 @@ _avr_binary = rule(
     _avr_binary_impl,
     executable = True,
     attrs = {
-        "_compiler": attr.label(
-            default = Label("@avrtools//:avr_compiler"),
+        "_cpp_compiler": attr.label(
+            default = Label("@avrtools//:avr_g++"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
         ),
-        "srcs": attr.label_list(allow_files = [".cpp"]),
+	"_c_compiler": attr.label(
+            default = Label("@avrtools//:avr_gcc"),
+            allow_single_file = True,
+            executable = True,
+            cfg = "host",
+        ),
+        "srcs": attr.label_list(allow_files = [".cpp", ".c"]),
         "hdrs": attr.label_list(allow_files = [".h"]),
         "deps": attr.label_list(),
     },
