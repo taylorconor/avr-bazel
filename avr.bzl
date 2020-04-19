@@ -103,7 +103,7 @@ def _avr_library_impl(ctx):
             outputs = [obj_file],
             mnemonic = "BuildAVRObject",
             executable = _get_relevant_compiler(ctx, src_file),
-            arguments = _get_standard_arguments(src_file) + [src_file.path, "-o", obj_file.path, "-c"],
+            arguments = _get_standard_arguments(src_file) + [src_file.path, "-o", obj_file.path, "-c"] + ctx.attr.copts,
         )
         objs.append(obj_file)
 
@@ -141,7 +141,7 @@ def _avr_binary_impl(ctx):
             outputs = [ctx.outputs.binary],
             mnemonic = "LinkAVRBinary",
             executable = _get_relevant_compiler(ctx, src_file),
-            arguments = _get_standard_arguments(src_file) + link_args,
+            arguments = _get_standard_arguments(src_file) + link_args + ctx.attr.copts,
         )
     return DefaultInfo(executable = ctx.outputs.binary)
 
@@ -213,6 +213,7 @@ _avr_pure_library = rule(
         "hdrs": attr.label_list(allow_files = [".h"]),
         "deps": attr.label_list(),
 	"includes": attr.label_list(),
+	"copts": attr.string_list(),
     },
 )
 
@@ -242,6 +243,7 @@ _avr_binary = rule(
         "srcs": attr.label_list(allow_files = [".cpp", ".c"]),
         "hdrs": attr.label_list(allow_files = [".h"]),
         "deps": attr.label_list(),
+	"copts": attr.string_list(),
     },
     outputs = {
         "binary": "%{name}.elf",
