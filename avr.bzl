@@ -70,7 +70,6 @@ def _get_standard_arguments(src_file):
         "-fdata-sections",
         "-fno-exceptions",
         "-fno-unwind-tables",
-        "-nostdlib",
         "-iquote",
         ".",
     ]
