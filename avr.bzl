@@ -78,6 +78,11 @@ def _get_standard_arguments(src_file):
 	    "-std=c++17",
 	    "-fno-rtti",
 	])
+    else:
+        compiler_args.extend([
+	    "-std=gnu99",
+	    "-Wl,--undefined=_mmcu,--section-start=.mmcu=0x910000",
+	])
     return compiler_args
 
 def _get_relevant_compiler(ctx, src_file):
