@@ -164,31 +164,46 @@ def _avr_hex_impl(ctx):
 avr_build_content = """
 package(default_visibility = ["//visibility:public"])
 
+MACOS_PREFIX="usr/local/bin/"
+LINUX_PREFIX="usr/bin/"
+
 filegroup(
   name = "avr_g++",
-  srcs = ["avr-g++"],
+  srcs = select({
+    "@bazel_tools//src/conditions:darwin": [MACOS_PREFIX + "avr-g++"],
+    "//conditions:default": [LINUX_PREFIX + "avr-g++"],
+  }),
 )
 
 filegroup(
   name = "avr_gcc",
-  srcs = ["avr-gcc"],
+  srcs = select({
+    "@bazel_tools//src/conditions:darwin": [MACOS_PREFIX + "avr-gcc"],
+    "//conditions:default": [LINUX_PREFIX + "avr-gcc"],
+  }),
 )
 
 filegroup(
   name = "avr_ar",
-  srcs = ["avr-ar"],
+  srcs = select({
+    "@bazel_tools//src/conditions:darwin": [MACOS_PREFIX + "avr-ar"],
+    "//conditions:default": [LINUX_PREFIX + "avr-ar"],
+  }),
 )
 
 filegroup(
   name = "avr_objcopy",
-  srcs = ["avr-objcopy"],
+  srcs = select({
+    "@bazel_tools//src/conditions:darwin": [MACOS_PREFIX + "avr-objcopy"],
+    "//conditions:default": [LINUX_PREFIX + "avr-objcopy"],
+  }),
 )
 """
 
 def avr_tools_repository():
     native.new_local_repository(
         name = "avrtools",
-        path = "/usr/local/bin",
+        path = "/",
         build_file_content = avr_build_content,
     )
 
@@ -202,13 +217,13 @@ _avr_pure_library = rule(
             cfg = "host",
         ),
 	"_c_compiler": attr.label(
-            default = Label("@avrtools//:avr_gcc"),
+	    default = Label("@avrtools//:avr_gcc"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
         ),
         "_archiver": attr.label(
-            default = Label("@avrtools//:avr_ar"),
+	    default = Label("@avrtools//:avr_ar"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
@@ -233,13 +248,13 @@ _avr_binary = rule(
     executable = True,
     attrs = {
         "_cpp_compiler": attr.label(
-            default = Label("@avrtools//:avr_g++"),
+	    default = Label("@avrtools//:avr_g++"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
         ),
 	"_c_compiler": attr.label(
-            default = Label("@avrtools//:avr_gcc"),
+	    default = Label("@avrtools//:avr_gcc"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
@@ -262,7 +277,7 @@ avr_hex = rule(
     attrs = {
         "src": attr.label(mandatory = True, allow_single_file = True),
         "_objcopy": attr.label(
-            default = Label("@avrtools//:avr_objcopy"),
+	    default = Label("@avrtools//:avr_objcopy"),
             allow_single_file = True,
             executable = True,
             cfg = "host",
