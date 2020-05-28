@@ -1,3 +1,4 @@
+# return the custom AVR "deps" attribute which contains AVR-specific dependency info.
 def _get_deps_attr(ctx, attr):
     deps = list()
     if hasattr(ctx.attr, "deps"):
@@ -8,6 +9,7 @@ def _get_deps_attr(ctx, attr):
 def _get_transitive_libs(ctx):
     return _get_deps_attr(ctx, "libs")
 
+# get all headers from all dependencies, including transitive dependencies.
 def _get_transitive_hdrs(ctx):
     hdr_files = _get_deps_attr(ctx, "hdrs")
     hdr_files.extend(ctx.files.hdrs)
@@ -27,12 +29,15 @@ def _deepcopy_dict_internal(data):
         result = data
     return result
 
+# utility to create a deep copy of a dictionary, since we can't use the python module to do it.
 def _deepcopy_dict(data):
     result = {}
     for key, value in data.items():
         result[key] = _deepcopy_dict_internal(value)
     return result
 
+# convert rule attributes to AVR attributes, modifying dependencies to point to their AVR
+# alternative where necessary.
 def _get_avr_attrs(**attrs):
     avr_attrs = _deepcopy_dict(attrs)
     if "deps" in avr_attrs.keys():
@@ -50,7 +55,8 @@ def _get_avr_attrs(**attrs):
         avr_attrs["deps"] = new_attrs
     return avr_attrs
 
-def _get_standard_arguments(src_file):
+# these are the compiler flags that all avr-gcc invocations are compiled with by default.
+def _get_standard_compiler_flags(src_file):
     compiler_args = [
         "-Os",
         "-mmcu=atmega32u4",
@@ -79,6 +85,8 @@ def _get_standard_arguments(src_file):
 	    "-fno-rtti",
 	])
     else:
+        # we need some C-specific flags to stop the compiler from optimising away the .mmcu section,
+	# which contains information about the target MCU and frequency in simulator builds.
         compiler_args.extend([
 	    "-std=gnu99",
 	    "-Wl,--undefined=_mmcu,--section-start=.mmcu=0x910000",
@@ -107,7 +115,7 @@ def _avr_library_impl(ctx):
             outputs = [obj_file],
             mnemonic = "BuildAVRObject",
             executable = _get_relevant_compiler(ctx, src_file),
-            arguments = _get_standard_arguments(src_file) + [src_file.path, "-o", obj_file.path, "-c"] + ctx.attr.copts,
+            arguments = _get_standard_compiler_flags(src_file) + [src_file.path, "-o", obj_file.path, "-c"] + ctx.attr.copts,
         )
         objs.append(obj_file)
 
@@ -145,7 +153,7 @@ def _avr_binary_impl(ctx):
             outputs = [ctx.outputs.binary],
             mnemonic = "LinkAVRBinary",
             executable = _get_relevant_compiler(ctx, src_file),
-            arguments = _get_standard_arguments(src_file) + link_args + ctx.attr.copts,
+            arguments = _get_standard_compiler_flags(src_file) + link_args + ctx.attr.copts,
         )
     return DefaultInfo(executable = ctx.outputs.binary)
 
@@ -161,6 +169,7 @@ def _avr_hex_impl(ctx):
         ),
     )
 
+# filegroup definitions which point to avr binaries on macos and linux.
 avr_build_content = """
 package(default_visibility = ["//visibility:public"])
 
@@ -200,6 +209,7 @@ filegroup(
 )
 """
 
+# needs to be run in the target WORKSPACE file to setup these tools.
 def avr_tools_repository():
     native.new_local_repository(
         name = "avrtools",
@@ -236,9 +246,11 @@ _avr_pure_library = rule(
     },
 )
 
+# define a library compiled for avr.
 def avr_pure_library(name, **attrs):
     _avr_pure_library(name = name + "_avr", **_get_avr_attrs(**attrs))
 
+# define a cc_library with name, and an avr_pure_library with name_avr.
 def avr_library(name, **attrs):
     native.cc_library(name = name, **attrs)
     avr_pure_library(name = name, **attrs)
@@ -269,9 +281,11 @@ _avr_binary = rule(
     },
 )
 
+# define an avr-targeted binary.
 def avr_binary(name, **attrs):
     _avr_binary(name = name, **_get_avr_attrs(**attrs))
 
+# hex the binary so it can be flashed onto the device.
 avr_hex = rule(
     _avr_hex_impl,
     attrs = {
