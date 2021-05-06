@@ -65,7 +65,6 @@ def _get_standard_compiler_flags(src_file):
         "-Wundef",
         "-Werror",
         "-Wfatal-errors",
-        "-Wl,--relax,--gc-sections",
         "-gdwarf-2",
         "-funsigned-char",
         "-funsigned-bitfields",
@@ -88,7 +87,6 @@ def _get_standard_compiler_flags(src_file):
 	# which contains information about the target MCU and frequency in simulator builds.
         compiler_args.extend([
 	    "-std=gnu99",
-	    "-Wl,--undefined=_mmcu,--section-start=.mmcu=0x910000",
 	])
     return compiler_args
 
