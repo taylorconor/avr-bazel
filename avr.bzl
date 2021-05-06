@@ -66,7 +66,6 @@ def _get_standard_compiler_flags(src_file):
         "-Werror",
         "-Wfatal-errors",
         "-Wl,--relax,--gc-sections",
-        "-g",
         "-gdwarf-2",
         "-funsigned-char",
         "-funsigned-bitfields",
